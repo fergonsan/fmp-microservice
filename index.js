@@ -14,24 +14,50 @@ app.get('/fmp/:ticker', async (req, res) => {
   if (!apiKey) return res.status(400).json({ error: 'API key required' });
 
   const endpoints = {
-    profile: `/profile/${ticker}`,
-    quote: `/quote/${ticker}`,
-    income: `/income-statement/${ticker}?limit=5`,
-    balance: `/balance-sheet-statement/${ticker}?limit=5`,
-    cashflow: `/cash-flow-statement/${ticker}?limit=5`,
-    ratios: `/ratios/${ticker}?limit=5`,
-    metrics: `/key-metrics/${ticker}?limit=5`,
-    dcf: `/discounted-cash-flow/${ticker}`,
+    general_profile: [
+      `/profile/${ticker}`,
+      `/quote/${ticker}`
+    ],
+    financial_statements: [
+      `/income-statement/${ticker}`,
+      `/balance-sheet-statement/${ticker}`,
+      `/cash-flow-statement/${ticker}`,
+      `/financial-growth/${ticker}`
+    ],
+    ratios_and_metrics: [
+      `/ratios/${ticker}`,
+      `/ratios-ttm/${ticker}`,
+      `/key-metrics/${ticker}`
+    ],
+    valuation: [
+      `/discounted-cash-flow/${ticker}`,
+      `/enterprise-values/${ticker}`,
+      `/historical-market-capitalization/${ticker}`
+    ],
+    share_structure: [
+      `/insider-trading/${ticker}`,
+      `/institutional-ownership/${ticker}`,
+      `/shares-float/${ticker}`
+    ],
+    additional_insights: [
+      `/analyst-estimates/${ticker}`,
+      `/esg-environmental-social-governance-data/${ticker}`,
+      `/rating/${ticker}`,
+      `/earning_calendar`  // No requiere ticker
+    ]
   };
 
   const results = {};
-  for (const [key, endpoint] of Object.entries(endpoints)) {
-    try {
+  for (const [category, endpointList] of Object.entries(endpoints)) {
+    results[category] = {};
+    for (const endpoint of endpointList) {
       const url = `${BASE_URL}${endpoint}${endpoint.includes('?') ? '&' : '?'}apikey=${apiKey}`;
-      const { data } = await axios.get(url);
-      results[key] = data;
-    } catch (err) {
-      results[key] = { error: true, message: err.message };
+      try {
+        const { data } = await axios.get(url);
+        results[category][endpoint] = data;
+      } catch (err) {
+        results[category][endpoint] = { error: true, message: err.message };
+      }
     }
   }
 
