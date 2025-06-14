@@ -219,6 +219,42 @@ app.get('/moat-check', async (req, res) => {
   }
 });
 
+// --- ENDPOINT 4: strategic-risks ---
+app.get('/strategic-risks', async (req, res) => {
+  const { ticker, empresa } = req.query;
+  if (!ticker || !empresa || !API_KEY || !GNEWS_KEY) {
+    return res.status(400).json({ error: 'ticker, empresa y claves API requeridos' });
+  }
+
+  try {
+    const [esgResp, secResp, gnewsResp] = await Promise.all([
+      axios.get(`${BASE_URL}/esg-environmental-social-governance-data/${ticker}?apikey=${API_KEY}`),
+      axios.get(`${BASE_URL}/sec_filings/${ticker}?limit=10&apikey=${API_KEY}`),
+      axios.get(`${GNEWS_API_URL}?q=${encodeURIComponent(empresa)}&lang=es&max=10&token=${GNEWS_KEY}`)
+    ]);
+
+    const esg = esgResp.data[0] || {};
+    const secFilings = secResp.data || [];
+    const noticias = gnewsResp.data.articles.map(a => a.title.toLowerCase());
+
+    const redFlags = ['fraude', 'demanda', 'regulación', 'riesgo legal', 'violación', 'monopolio', 'protesta', 'corrupción'];
+    const noticiasRiesgo = noticias.filter(t => redFlags.some(p => t.includes(p)));
+
+    const riesgos = {
+      esg_score: esg.totalEsgScore || 'No disponible',
+      litigios_detectados: secFilings.filter(f => /lawsuit|investigation|settlement/i.test(f.title)).length,
+      noticias_riesgo: noticiasRiesgo.slice(0, 5),
+      total_noticias_riesgo: noticiasRiesgo.length,
+      palabras_clave: redFlags
+    };
+
+    res.json({ ticker, empresa, riesgos });
+  } catch (err) {
+    console.error('❌ Error en /strategic-risks:', err.message);
+    res.status(500).json({ error: 'Error al procesar riesgos estratégicos' });
+  }
+});
+
 // ----------------- Launch server -----------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
