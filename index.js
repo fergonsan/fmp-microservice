@@ -177,3 +177,59 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Microservicio FMP + Sentiment corriendo en puerto ${PORT}`);
 });
+
+// --- /moat-check ---
+app.get('/moat-check', async (req, res) => {
+  const { ticker } = req.query;
+  const apiKey = process.env.FMP_API_KEY;
+
+  if (!ticker || !apiKey) {
+    return res.status(400).json({ error: 'ticker y API key requeridos' });
+  }
+
+  try {
+    const [profileResp, ratiosResp, keyMetricsResp] = await Promise.all([
+      axios.get(`https://financialmodelingprep.com/api/v3/profile/${ticker}?apikey=${apiKey}`),
+      axios.get(`https://financialmodelingprep.com/api/v3/ratios-ttm/${ticker}?apikey=${apiKey}`),
+      axios.get(`https://financialmodelingprep.com/api/v3/key-metrics/${ticker}?limit=1&apikey=${apiKey}`)
+    ]);
+
+    const profile = profileResp.data[0] || {};
+    const ratios = ratiosResp.data[0] || {};
+    const metrics = keyMetricsResp.data[0] || {};
+
+    // Análisis básico
+    const moat = profile.description?.toLowerCase().includes("leader") || profile.description?.toLowerCase().includes("competitive advantage") ? "probable" : "no claro";
+    const pricing_power = profile.description?.toLowerCase().includes("premium") || profile.description?.toLowerCase().includes("pricing") ? "posible" : "limitado";
+    const revenue_model = profile.sector === "Technology" || profile.industry?.includes("Software") ? "recurrente o diversificado" : "poco claro";
+    const client_dependency = profile.description?.toLowerCase().includes("main customer") ? "alto" : "no";
+    const switching_costs = profile.description?.toLowerCase().includes("platform") || profile.description?.toLowerCase().includes("ecosystem") ? "moderados" : "bajos";
+    const economies_of_scale = profile.description?.toLowerCase().includes("scale") ? "sí" : "no detectado";
+
+    const roe = Number(ratios.returnOnEquity) || null;
+    const roic = Number(ratios.returnOnCapitalEmployed) || null;
+
+    const capital_allocation = roe && roe > 15 && roic && roic > 10 ? "eficiente" : "dudosa";
+    const insider_ownership = "no disponible en plan free";
+    const buybacks = metrics.buybackYield && Number(metrics.buybackYield) < 0 ? "activos y disciplinados" : "inactivos o no detectados";
+
+    res.json({
+      ticker,
+      moat,
+      pricing_power,
+      revenue_model,
+      client_dependency,
+      switching_costs,
+      economies_of_scale,
+      capital_allocation,
+      insider_ownership,
+      buybacks,
+      roe,
+      roic
+    });
+
+  } catch (error) {
+    console.error("❌ Error en /moat-check:", error.message);
+    res.status(500).json({ error: "Error al procesar la calidad del negocio" });
+  }
+});
