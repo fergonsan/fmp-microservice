@@ -1,3 +1,9 @@
+/**
+ * @module Financial Analysis Microservice
+ * @description Microservicio para análisis financiero que proporciona endpoints para diferentes tipos de análisis
+ * utilizando la API de Financial Modeling Prep (FMP) y GNews para análisis de sentimiento.
+ */
+
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -13,7 +19,18 @@ const GNEWS_API_URL = 'https://gnews.io/api/v4/search';
 const API_KEY = process.env.FMP_API_KEY;
 const GNEWS_KEY = process.env.GNEWS_API_KEY;
 
-// ----------------- Endpoint 1: /fmp/:ticker -----------------
+/**
+ * @route GET /fmp/:ticker
+ * @description Endpoint principal que obtiene datos financieros completos de una empresa
+ * @param {string} ticker - Símbolo de la acción a analizar
+ * @returns {Object} Datos financieros organizados por categorías:
+ * - general_profile: Perfil general y cotización
+ * - financial_statements: Estados financieros y crecimiento
+ * - ratios_and_metrics: Ratios y métricas clave
+ * - valuation: Valoración y capitalización
+ * - share_structure: Estructura de propiedad
+ * - additional_insights: Estimaciones y datos ESG
+ */
 app.get('/fmp/:ticker', async (req, res) => {
   const { ticker } = req.params;
   if (!API_KEY) return res.status(500).json({ error: 'API key no configurada' });
@@ -67,12 +84,26 @@ app.get('/fmp/:ticker', async (req, res) => {
   res.json({ ticker, data: results });
 });
 
-// ----------------- Endpoint 2: /sentiment-data -----------------
+/**
+ * @route GET /sentiment-data
+ * @description Endpoint para análisis de sentimiento combinando noticias y datos técnicos
+ * @param {string} ticker - Símbolo de la acción
+ * @returns {Object} Análisis de sentimiento incluyendo:
+ * - noticias: Clasificación de noticias por sentimiento
+ * - analistas: Recomendaciones de analistas
+ * - tecnica: Análisis técnico básico
+ */
 app.get('/sentiment-data', async (req, res) => {
-  const { ticker, empresa } = req.query;
-  if (!ticker || !empresa) return res.status(400).json({ error: 'ticker y empresa requeridos' });
+  const { ticker } = req.query;
+  if (!ticker) return res.status(400).json({ error: 'ticker requerido' });
   if (!API_KEY || !GNEWS_KEY) return res.status(500).json({ error: 'Claves API no configuradas' });
 
+  /**
+   * @function clasificarTitular
+   * @description Clasifica un titular de noticia como positivo, negativo o neutral
+   * @param {string} titulo - El titular a clasificar
+   * @returns {string} Clasificación del sentimiento
+   */
   function clasificarTitular(titulo) {
     const positivo = ['récord', 'acuerdo', 'expansión', 'ganancia', 'crecimiento', 'aprobado', 'premio', 'mejora', 'autonomía', 'liderazgo'];
     const negativo = ['pánico', 'demanda', 'problemas', 'escándalo', 'caída', 'riesgo', 'regulación', 'fraude', 'protesta', 'violación'];
@@ -82,6 +113,12 @@ app.get('/sentiment-data', async (req, res) => {
     return 'neutral';
   }
 
+  /**
+   * @function palabrasFrecuentes
+   * @description Encuentra las palabras más frecuentes en los titulares
+   * @param {string[]} titulares - Array de titulares de noticias
+   * @returns {string[]} Top 5 palabras más frecuentes
+   */
   function palabrasFrecuentes(titulares) {
     const stopwords = ['de', 'la', 'el', 'en', 'por', 'con', 'y', 'a', 'para', 'un', 'del'];
     const tokens = titulares
@@ -98,6 +135,13 @@ app.get('/sentiment-data', async (req, res) => {
   }
 
   try {
+    // Obtener el nombre de la empresa del perfil
+    const profileResp = await axios.get(`${BASE_URL}/profile/${ticker}?apikey=${API_KEY}`);
+    const empresa = profileResp.data[0]?.companyName;
+    if (!empresa) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+
     const newsResp = await axios.get(`${GNEWS_API_URL}?q=${encodeURIComponent(empresa)}&lang=es&max=10&token=${GNEWS_KEY}`);
     const titulares = newsResp.data.articles.map(a => a.title);
     const positivas = [], negativas = [], neutrales = [];
@@ -152,7 +196,17 @@ app.get('/sentiment-data', async (req, res) => {
   }
 });
 
-// ----------------- Endpoint 3: /moat-check -----------------
+/**
+ * @route GET /moat-check
+ * @description Endpoint para análisis de ventajas competitivas y calidad del negocio
+ * @param {string} ticker - Símbolo de la acción
+ * @returns {Object} Análisis de ventajas competitivas incluyendo:
+ * - moat: Evaluación de ventaja competitiva
+ * - pricing_power: Poder de fijación de precios
+ * - revenue_model: Modelo de ingresos
+ * - capital_allocation: Eficiencia en asignación de capital
+ * - ownership: Estructura de propiedad
+ */
 app.get('/moat-check', async (req, res) => {
   const { ticker } = req.query;
   if (!ticker || !API_KEY) return res.status(400).json({ error: 'ticker requerido' });
@@ -219,14 +273,29 @@ app.get('/moat-check', async (req, res) => {
   }
 });
 
-// --- ENDPOINT 4: strategic-risks ---
+/**
+ * @route GET /strategic-risks
+ * @description Endpoint para análisis de riesgos estratégicos combinando datos ESG, SEC y noticias
+ * @param {string} ticker - Símbolo de la acción
+ * @returns {Object} Análisis de riesgos incluyendo:
+ * - esg_score: Puntuación ESG
+ * - litigios_detectados: Número de litigios recientes
+ * - noticias_riesgo: Noticias relevantes sobre riesgos
+ */
 app.get('/strategic-risks', async (req, res) => {
-  const { ticker, empresa } = req.query;
-  if (!ticker || !empresa || !API_KEY || !GNEWS_KEY) {
-    return res.status(400).json({ error: 'ticker, empresa y claves API requeridos' });
+  const { ticker } = req.query;
+  if (!ticker || !API_KEY || !GNEWS_KEY) {
+    return res.status(400).json({ error: 'ticker y claves API requeridos' });
   }
 
   try {
+    // Obtener el nombre de la empresa del perfil
+    const profileResp = await axios.get(`${BASE_URL}/profile/${ticker}?apikey=${API_KEY}`);
+    const empresa = profileResp.data[0]?.companyName;
+    if (!empresa) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
+    }
+
     const [esgResp, secResp, gnewsResp] = await Promise.all([
       axios.get(`${BASE_URL}/esg-environmental-social-governance-data/${ticker}?apikey=${API_KEY}`),
       axios.get(`${BASE_URL}/sec_filings/${ticker}?limit=10&apikey=${API_KEY}`),
