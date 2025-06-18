@@ -39,8 +39,8 @@ app.get('/fmp/:ticker', async (req, res) => {
 
   async function fetch(endpoint, isV4 = false) {
     const baseUrl = isV4 ? BASE_URL_V4 : BASE_URL;
-    const url = \`\${baseUrl}\${endpoint}\${endpoint.includes('?') ? '&' : '?'}apikey=\${apiKey}\`;
-    try {
+    const url = baseUrl + endpoint + (endpoint.includes('?') ? '&' : '?') + 'apikey=' + apiKey;
+
       const response = await axios.get(url);
       return response.data;
     } catch (error) {
@@ -69,7 +69,7 @@ app.get('/fmp/:ticker', async (req, res) => {
   }
 
   res.json({ ticker, data });
-});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
