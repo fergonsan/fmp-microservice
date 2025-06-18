@@ -37,30 +37,31 @@ app.get('/fmp/:ticker', async (req, res) => {
     strategic_risks: `/strategic-risks/${ticker}`
   };
 
-  async function fetch(endpoint, isV4 = false) {
-    const baseUrl = isV4 ? BASE_URL_V4 : BASE_URL;
-    const url = baseUrl + endpoint + (endpoint.includes('?') ? '&' : '?') + 'apikey=' + apiKey;
+ async function fetch(endpoint, isV4 = false) {
+  const baseUrl = isV4 ? BASE_URL_V4 : BASE_URL;
+  const url = baseUrl + endpoint + (endpoint.includes('?') ? '&' : '?') + 'apikey=' + apiKey;
 
-      const response = await axios.get(url);
-      return response.data;
-    } catch (error) {
-      console.error('[FMP ERROR]', {
-        endpoint,
-        url,
-        message: error.message,
-        code: error.code || null,
-        responseData: error.response?.data || null
-      });
-      return {
-        error: true,
-        message: error.message,
-        code: error.code || null,
-        status: error.response?.status || null,
-        data: error.response?.data || null,
-        endpoint
-      };
-    }
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('[FMP ERROR]', {
+      endpoint,
+      url,
+      message: error.message,
+      code: error.code || null,
+      responseData: error.response?.data || null
+    });
+    return {
+      error: true,
+      message: error.message,
+      code: error.code || null,
+      status: error.response?.status || null,
+      data: error.response?.data || null,
+      endpoint
+    };
   }
+}
 
   const data = {};
   for (const [key, endpoint] of Object.entries(endpoints)) {
